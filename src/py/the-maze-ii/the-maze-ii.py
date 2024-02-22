@@ -1,6 +1,8 @@
+import copy
 import sys
-from typing import List
-
+from typing import List, Tuple
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Solution:
     def shortestDistance(self, maze: List[List[int]], start: List[int], destination: List[int]) -> int:
@@ -9,7 +11,26 @@ class Solution:
         visited: List[List[bool]] = [[False] * n_cols for _ in range(n_rows)]
         status: List[List[int]] = [[sys.maxsize] * n_cols for _ in range(n_rows)]
         status[destination[0]][destination[1]] = 0
-        min_d = self.traverse_dfs(maze=maze, start=start, destination=destination, visited=visited, status=status)
+        paths = []
+        visited_paths: List[List[List]] = [[[] for _ in range(n_cols)] for _ in range(n_rows)]
+        min_d = self.traverse_dfs(maze=maze, start=start, destination=destination, visited=visited, status=status,
+                                  paths=paths, visited_paths=visited_paths,
+                                  )
+
+        import matplotlib
+        color1 = (1, 1, 1)
+        color2 = (0, 0, 0)
+
+        mat = np.array(maze)
+
+        my_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('my_camp', [color1, color2], 2)
+        cs = plt.imshow(mat, cmap=my_cmap)
+
+        # plt.xticks(np.linspace(0, n_rows, n_cols, endpoint=False), ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'), fontsize=20)
+        # plt.yticks(np.linspace(0, n_rows, n_cols, endpoint=False), ('1', '2', '3', '4', '5', '6', '7', '8'), fontsize=20)
+        plt.tick_params(bottom=False, left=False, labeltop=True, labelright=True)
+        plt.show()
+
         # print("maze: ")
         # for i in maze:
         #     print(i)
@@ -18,6 +39,9 @@ class Solution:
         # print("status: ")
         # for i in status:
         #     print(i)
+        print("paths:")
+        for i in paths:
+            print(i)
         if min_d == sys.maxsize:
             return -1
         else:
@@ -25,20 +49,31 @@ class Solution:
 
     def traverse_dfs(self, maze: List[List[int]], start: List[int], destination: List[int],
                      visited: List[List[bool]],
-                     status: List[List[int]]):
+                     status: List[List[int]],
+                     paths: List[Tuple[Tuple[List, List], int]],
+                     visited_paths: List[List[List]]
+                     ):
+        # print("paths begin: ")
+        # for _ in paths:
+        #     print(_)
         # print(f"traverse_dfs, start: {start}")
         n_rows = len(maze)
         n_cols = len(maze[0])
         start_x, start_y = start[0], start[1]
         if start_x not in range(0, n_rows) or start_y not in range(0, n_cols):
+            print(f"({start_x}, {start_y}) out of range")
             return sys.maxsize
         if start == destination:
+            print(f"arrived destination")
             return 0
         if visited[start_x][start_y]:
             print(f"visited: ({start_x}, {start_y}), return {status[start_x][start_y]}")
+            paths.extend(visited_paths[start_x][start_y])
             return status[start_x][start_y]
 
+        visited[start_x][start_y] = True
         min_dis_ij = sys.maxsize
+        _paths = []
         for (i, j) in [(start_x - 1, start_y), (start_x + 1, start_y),
                        (start_x, start_y - 1), (start_x, start_y + 1),
                        ]:
@@ -55,47 +90,58 @@ class Solution:
                 continue
 
             dis = 0
+            new_paths = []
             if i > start_x:  # down
                 ii = i
                 while ii in range(0, n_rows) and j in range(0, n_cols) and maze[ii][j] == 0:
                     dis += 1
                     ii += 1
-                if ii - 1 in range(n_rows):
-                    visited[ii - 1][j] = True
+                _path = (start, [ii - 1, j])
+                new_paths.append((_path, dis))
                 dis_ij = dis + self.traverse_dfs(maze=maze, start=[ii - 1, j], destination=destination,
-                                                 visited=visited, status=status)
+                                                 visited=visited, status=status, paths=new_paths,
+                                                 visited_paths=visited_paths)
+
             elif i < start_x:  # up
                 ii = i
                 while ii in range(0, n_rows) and j in range(0, n_cols) and maze[ii][j] == 0:
                     dis += 1
                     ii -= 1
-                if ii + 1 in range(n_rows):
-                    visited[ii + 1][j] = True
+                _path = (start, [ii + 1, j])
+                new_paths.append((_path, dis))
                 dis_ij = dis + self.traverse_dfs(maze=maze, start=[ii + 1, j], destination=destination,
-                                                 visited=visited, status=status)
+                                                 visited=visited, status=status, paths=new_paths,
+                                                 visited_paths=visited_paths)
             elif j > start_y:  # right
                 jj = j
                 while i in range(0, n_rows) and jj in range(0, n_cols) and maze[i][jj] == 0:
                     dis += 1
                     jj += 1
-                if jj - 1 in range(n_cols):
-                    visited[i][jj - 1] = True
+                _path = (start, [i, jj - 1])
+                new_paths.append((_path, dis))
                 dis_ij = dis + self.traverse_dfs(maze=maze, start=[i, jj - 1], destination=destination,
-                                                 visited=visited, status=status)
+                                                 visited=visited, status=status, paths=new_paths,
+                                                 visited_paths=visited_paths)
             else:  # left
                 jj = j
                 while i in range(0, n_rows) and jj in range(0, n_cols) and maze[i][jj] == 0:
                     dis += 1
                     jj -= 1
-                if jj + 1 in range(n_cols):
-                    visited[i][jj + 1] = True
+                _path = (start, [i, jj + 1])
+                new_paths.append((_path, dis))
                 dis_ij = dis + self.traverse_dfs(maze=maze, start=[i, jj + 1], destination=destination,
-                                                 visited=visited, status=status)
+                                                 visited=visited, status=status, paths=new_paths,
+                                                 visited_paths=visited_paths)
 
             if dis_ij < min_dis_ij:
                 min_dis_ij = dis_ij
+                _paths = new_paths
 
-        status[start_x][start_y] = min_dis_ij
+        if min_dis_ij < sys.maxsize:
+            _paths[0] = _paths[0] + (min_dis_ij,)
+            paths.extend(_paths)
+            visited_paths[start_x][start_y] = _paths
+            status[start_x][start_y] = min_dis_ij
 
         return min_dis_ij
 
